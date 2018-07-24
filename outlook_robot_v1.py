@@ -42,7 +42,7 @@ logger.setLevel(logging.INFO)
 
 # Log into outlook
 username = 'morgancreekcap\dbiswas'
-password = 'xdr55%%TGB'
+password = sys.argv[1]
 ews_client=EWS_Client(username=username, password=password)
 
 # Define which spreadsheet to parse
