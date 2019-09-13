@@ -10,18 +10,9 @@ from datetime import datetime
 from itertools import combinations
 import logging
 #
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException
-#
-from bs4 import BeautifulSoup
-#
 import pandas as pd
 import html2text
 import numpy as np
-import openpyxl
 _p = print
 
 from ewspy.ewspy import EWS_Client
@@ -36,14 +27,21 @@ import email
 
 _p = print
 
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = logging.getLogger('__main__')
 
+handler = logging.StreamHandler(sys.stderr)
+
+formatter = logging.Formatter('{asctime:_<10s}:{name:_<10s},{levelname:_<10s},{message:_<10s}', style='{', datefmt='%Y-%m-%d_%H:%M:%S')
+
+handler.setFormatter(formatter)
+
+logger.addHandler(handler)
+
+logger.setLevel(logging.INFO)
 # Log into outlook
 username = 'morgancreekcap\dbiswas'
 password = sys.argv[1]
-ews_client=EWS_Client(username=username, password=password)
+ews_client=EWS_Client(username=username, password=password, max_items_per_get_item_query=100)
 
 # Define which spreadsheet to parse
 spreadsheet_id = '1PZSYBQdyI78w9Fv1tHN7vNVE2YhXtgWSpiybyYnnmsc'
