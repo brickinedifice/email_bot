@@ -13,6 +13,7 @@ import logging
 import pandas as pd
 import html2text
 import numpy as np
+import pdb
 _p = print
 
 from ewspy.ewspy import EWS_Client
@@ -79,8 +80,8 @@ logger.info('dbc_file_shape:{0}'.format(dbc_file.shape))
 
 _email_bot_folder_ids = {
     'delete_domain':'AAMkAGNkYTQxYTM0LTdmMzQtNDBmYS1hM2UxLWQ2ZDk5MjA1MThiZQAuAAAAAAD6JGJ10tgMRqwokUswdNnkAQBl7EvVNr0ETaJXUaYcxvBtAACQTI45AAA=',
-    'delete_user':'AAMkAGNkYTQxYTM0LTdmMzQtNDBmYS1hM2UxLWQ2ZDk5MjA1MThiZQAuAAAAAAD6JGJ10tgMRqwokUswdNnkAQBl7EvVNr0ETaJXUaYcxvBtAACQTI+JAAA=',
-    'delete_subject':'AAMkAGNkYTQxYTM0LTdmMzQtNDBmYS1hM2UxLWQ2ZDk5MjA1MThiZQAuAAAAAAD6JGJ10tgMRqwokUswdNnkAQBl7EvVNr0ETaJXUaYcxvBtAACQTI8hAAA=',
+    'delete_subject':'AAMkAGNkYTQxYTM0LTdmMzQtNDBmYS1hM2UxLWQ2ZDk5MjA1MThiZQAuAAAAAAD6JGJ10tgMRqwokUswdNnkAQBl7EvVNr0ETaJXUaYcxvBtAACQTI+JAAA=',
+    'delete_user':'AAMkAGNkYTQxYTM0LTdmMzQtNDBmYS1hM2UxLWQ2ZDk5MjA1MThiZQAuAAAAAAD6JGJ10tgMRqwokUswdNnkAQBl7EvVNr0ETaJXUaYcxvBtAACQTI8hAAA=',
 }
 
 
@@ -88,6 +89,8 @@ _email_bot_folder_ids = {
 move_dbc_delete_items_folder_id = 'AAMkAGNkYTQxYTM0LTdmMzQtNDBmYS1hM2UxLWQ2ZDk5MjA1MThiZQAuAAAAAAD6JGJ10tgMRqwokUswdNnkAQACVbg9tcIJQ5kcVEGq/yCrAAAAF+K9AAA='
 
 email_domain_reg_exp = re.compile('.+@(.+)')
+
+email_subject_reg_exp = re.compile('(^[a-zA-Z].*\s[a-zA-Z].*)$')
 
 _email_generator = EWS_Client.get_all_items_in_folder(ews_client, 'FolderId', _email_bot_folder_ids['delete_domain'], query=None)
 
@@ -145,6 +148,69 @@ try:
 except StopIteration as _e:
 
     logger.exception(_e)
+
+_email_generator = EWS_Client.get_all_items_in_folder(ews_client, 'FolderId', _email_bot_folder_ids['delete_subject'], query=None)
+
+try:
+
+    for emails in _email_generator:
+
+        emails = EWS_Client.get_items(ews_client, emails)
+
+        for index, email in emails.iterrows():
+
+            _email_address = EWS_Client.get_attribute_from_EWS_response(['From', 'Mailbox', 'EmailAddress'], email[1])
+
+            _email_subject = EWS_Client.get_attribute_from_EWS_response(['Subject'], email[1])
+
+            try:
+
+                _email_domain = email_domain_reg_exp.match(_email_address).groups()[0]
+
+                # _email_subject_first_two_words = email_subject_reg_exp.match(_email_subject).groups()[0]
+                _email_subject_first_20_chars = _email_subject[:20]
+
+                _new_filter_for_google = ['from', _email_domain, 'subject', _email_subject_first_20_chars, 'DBC_DELETE']
+
+                _new_filter_for_pandas = {
+                    'address_field':'from', 
+                    'address_filter':_email_domain, 
+                    'text_field':'subject', 
+                    'text_filter':_email_subject_first_20_chars, 
+                    'categories':'DBC_DELETE',
+                }
+
+                services['spreadsheet'].spreadsheets().values().append(
+                    spreadsheetId=spreadsheet_id,
+                    range=range_name,
+                    valueInputOption='RAW',
+                    insertDataOption='INSERT_ROWS',
+                    body={'values':[_new_filter_for_google]},
+                ).execute()
+
+                dbc_file = dbc_file.append([_new_filter_for_pandas], ignore_index=True)
+
+                ews_client.client.service.MoveItem(
+                        ToFolderId={'FolderId':{'Id':move_dbc_delete_items_folder_id}},
+                        ItemIds={'_value_1':[{'ItemId':{'Id':index}}]},
+                        _soapheaders={'RequestVersion':{'Version':'Exchange2010_SP2'}},
+                    )
+
+                logger.debug('\radding_new_filter:{0}'.format(_new_filter_for_pandas))
+
+            except IndexError as ie:
+
+                logger.exception(ie)
+
+            except TypeError as te:
+
+                logger.exception(te)
+
+# if generator is em
+except StopIteration as _e:
+
+    logger.exception(_e)
+
 
 
 # drop the duplicates
